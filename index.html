@@ -5,20 +5,53 @@
     <title>Відкриваємо Viber…</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
+    <style>
+      html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
+      .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
+      .msg{max-width:640px;line-height:1.5;color:#111}
+      .muted{color:#666;font-size:14px}
+      code{background:#f6f8fa;padding:2px 6px;border-radius:4px}
+    </style>
     <script>
       (function () {
-        // === SET YOUR NUMBER HERE (digits only, E.164 without "+") ===
-        const E164 = "380979351325"; // ← change if needed
-        // =============================================================
+        const params = new URLSearchParams(location.search);
+        // Accept several param names; use whichever is present
+        const rawIn = params.get('e164') || params.get('phone') || params.get('n') || params.get('num');
 
-        const num = String(E164).replace(/\D/g, "");
+        // Keep digits only
+        const onlyDigits = s => (String(s).match(/\d+/g) || []).join('');
+
+        // Basic E.164 validation (digits only, up to 15 digits)
+        function normalizeE164(input) {
+          if (!input) return null;
+          const digits = onlyDigits(input);
+          if (!digits) return null;
+          if (digits.length < 8 || digits.length > 15) return null; // E.164 max 15 digits
+          return digits; // return digits-only; we add "+" only when needed
+        }
+
+        const digits = normalizeE164(rawIn);
+
+        // If missing/invalid param, render a tiny help and stop
+        if (!digits) {
+          document.addEventListener('DOMContentLoaded', () => {
+            const el = document.getElementById('status');
+            el.innerHTML = [
+              '<h2>Необхідний параметр у URL</h2>',
+              '<p>Додайте до посилання параметр <code>?e164=</code> з міжнародним номером телефону (E.164, до 15 цифр).</p>',
+              '<p class="muted">Приклади:<br>',
+              '<code>?e164=380979351234</code> або <code>?phone=%2B380979351234</code></p>'
+            ].join('');
+          });
+          return;
+        }
 
         // Platform detect
         const ua = navigator.userAgent;
         const isAndroid = /Android/i.test(ua);
         const isiOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 2);
 
-        // Mark when app likely opened
+        // Mark when the app likely opened
         let launched = false;
         const mark = () => { launched = true; };
         window.addEventListener('pagehide', mark, { once: true });
@@ -34,19 +67,23 @@
           setTimeout(() => { if (launched) { try { location.replace('about:blank'); } catch (e) {} } }, 200);
         }
 
+        // Build deep links
+        const CHAT_URI    = "viber://chat?number=" + digits;
+        const CONTACT_URI = "viber://contact?number=%2B" + digits; // %2B is '+' encoded
+
         if (isAndroid) {
-          // Use Chrome Intent. Fallback ONLY to Play Store (never to viber.com).
-          const intent = "intent://chat?number=" + num +
+          // Chrome Intent: only uses fallback if Viber isn't installed (never to viber.com)
+          const intent = "intent://chat?number=" + digits +
             "#Intent;scheme=viber;package=com.viber.voip;" +
             "S.browser_fallback_url=" + encodeURIComponent("https://play.google.com/store/apps/details?id=com.viber.voip") +
             ";end";
           location.replace(intent);
         } else {
-          // iOS & desktop: try chat first, then contact with encoded + (community-compatible)
-          location.href = "viber://chat?number=" + num;
-          setTimeout(() => { location.href = "viber://contact?number=%2B" + num; }, 350);
+          // iOS & desktop: try chat, then contact (+ encoded)
+          location.href = CHAT_URI;
+          setTimeout(() => { location.href = CONTACT_URI; }, 350);
 
-          // If app didn't open, fallback ONLY on iOS to App Store. Desktop: do nothing.
+          // Fallback ONLY if app didn't open
           setTimeout(() => {
             if (launched) { closeOrBlank(); return; }
             if (isiOS) location.href = "https://apps.apple.com/app/id382617920";
@@ -54,12 +91,18 @@
         }
       })();
     </script>
-    <style>html,body{height:100%;margin:0}</style>
   </head>
   <body>
+    <div class="wrap">
+      <div id="status" class="msg">
+        <h2>Відкриваємо Viber…</h2>
+        <p class="muted">Якщо Viber встановлено, сторінка зникне автоматично. Якщо ні, на iOS відкриється App Store; на Android — Play Store; на комп’ютері нічого не відбудеться.</p>
+      </div>
+    </div>
     <noscript>
-      <p>Enable JavaScript to open Viber by phone number +380979351325.</p>
+      <div class="wrap"><div class="msg">
+        <p>Увімкніть JavaScript та відкрийте <code>?e164=380979351234</code>.</p>
+      </div></div>
     </noscript>
   </body>
 </html>
-
