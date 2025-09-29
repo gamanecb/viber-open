@@ -1,109 +1,149 @@
 <!doctype html>
 <html lang="uk">
-  <head>
-    <meta charset="utf-8" />
-    <title>Відкриваємо Viber…</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex, nofollow" />
-    <style>
-      html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
-      .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
-      .msg{max-width:640px;line-height:1.5;color:#111}
-      .muted{color:#666;font-size:14px}
-      code{background:#f6f8fa;padding:2px 6px;border-radius:4px}
-    </style>
-    <script>
-      (function () {
-        const params = new URLSearchParams(location.search);
-        // Accept several param names; use whichever is present
-        const rawIn = params.get('e164') || params.get('phone') || params.get('n') || params.get('num');
+<head>
+  <meta charset="utf-8" />
+  <title>Відкриваємо Viber…</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <style>
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
+    .msg{max-width:640px;line-height:1.5;color:#111;text-align:center}
+    .muted{color:#666;font-size:14px}
+    button{font-size:16px;padding:12px 18px;border-radius:10px;border:0;cursor:pointer}
+  </style>
+  <script>
+  (function () {
+    // --- Parse E.164 from URL (?e164=, ?phone=, ?n=, ?num=) ---
+    const p = new URLSearchParams(location.search);
+    const raw = p.get('e164') || p.get('phone') || p.get('n') || p.get('num');
+    const digitsOnly = s => (String(s||'').match(/\d+/g) || []).join('');
+    function normalizeE164(s){
+      const d = digitsOnly(s);
+      if (!d || d.length < 8 || d.length > 15) return null; // E.164 max 15
+      return d;
+    }
+    const E164 = normalizeE164(raw);
 
-        // Keep digits only
-        const onlyDigits = s => (String(s).match(/\d+/g) || []).join('');
+    // --- Platform detection ---
+    const UA = navigator.userAgent;
+    const isAndroid = /Android/i.test(UA);
+    const isiOS = /iPhone|iPad|iPod/i.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 2);
+    const isWindowsDesktop = /Windows NT/i.test(UA) && !/Mobile/i.test(UA);
 
-        // Basic E.164 validation (digits only, up to 15 digits)
-        function normalizeE164(input) {
-          if (!input) return null;
-          const digits = onlyDigits(input);
-          if (!digits) return null;
-          if (digits.length < 8 || digits.length > 15) return null; // E.164 max 15 digits
-          return digits; // return digits-only; we add "+" only when needed
-        }
+    // --- Shared deep links ---
+    function chatUri(d){ return "viber://chat?number=" + d; }
+    function contactUriPlus(d){ return "viber://contact?number=%2B" + d; } // '+' must be %2B
 
-        const digits = normalizeE164(rawIn);
+    // --- Helper: Android Chrome Intent (no viber.com; Play Store only) ---
+    function androidIntent(d){
+      const intent = "intent://chat?number=" + d +
+        "#Intent;scheme=viber;package=com.viber.voip;" +
+        "S.browser_fallback_url=" + encodeURIComponent("https://play.google.com/store/apps/details?id=com.viber.voip") +
+        ";end";
+      location.replace(intent); // Chrome resolves or uses fallback automatically
+    }
 
-        // If missing/invalid param, render a tiny help and stop
-        if (!digits) {
-          document.addEventListener('DOMContentLoaded', () => {
-            const el = document.getElementById('status');
-            el.innerHTML = [
-              '<h2>Необхідний параметр у URL</h2>',
-              '<p>Додайте до посилання параметр <code>?e164=</code> з міжнародним номером телефону (E.164, до 15 цифр).</p>',
-              '<p class="muted">Приклади:<br>',
-              '<code>?e164=380979351234</code> або <code>?phone=%2B380979351234</code></p>'
-            ].join('');
-          });
-          return;
-        }
+    // --- Windows launcher popup (script-opened => can self-close) ---
+    function openWindowsLauncher(d){
+      const pop = window.open('', 'viberLauncher',
+        'popup=yes,width=320,height=240,noopener,noreferrer'); // opened by script -> closable
+      if (!pop) {
+        // Popup blocked: best effort in this tab (cannot auto-close by spec)
+        location.href = contactUriPlus(d);
+        return;
+      }
+      const html = `
+        <!doctype html><meta charset="utf-8">
+        <title>Launching Viber…</title>
+        <script>
+          (function(){
+            var launched=false;
+            window.addEventListener('blur', function(){ launched=true; }, {once:true});
+            document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='hidden') launched=true; }, {once:true});
+            // Try both variants
+            location.href='${chatUri(d)}';
+            setTimeout(function(){ location.href='${contactUriPlus(d)}'; }, 350);
+            // Close quickly; if blocked, blank
+            setTimeout(function(){
+              try{ window.close(); }catch(e){}
+              try{ window.open('','_self'); window.close(); }catch(e){}
+              setTimeout(function(){ try{ location.replace('about:blank'); }catch(e){} }, 150);
+            }, 1200);
+          })();
+        <\/script>
+        <div style="font:14px/1.4 system-ui;padding:16px;text-align:center">Відкриваємо Viber…</div>`;
+      pop.document.write(html);
+      pop.document.close();
+    }
 
-        // Platform detect
-        const ua = navigator.userAgent;
-        const isAndroid = /Android/i.test(ua);
-        const isiOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 2);
+    // --- UI bootstrap / flows ---
+    document.addEventListener('DOMContentLoaded', () => {
+      const status = document.getElementById('status');
 
-        // Mark when the app likely opened
-        let launched = false;
-        const mark = () => { launched = true; };
-        window.addEventListener('pagehide', mark, { once: true });
-        window.addEventListener('blur', mark, { once: true });
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'hidden') mark();
-        }, { once: true });
+      if (!E164) {
+        status.innerHTML = `
+          <h2>Необхідний параметр у URL</h2>
+          <p>Додайте <code>?e164=</code> з міжнародним номером (E.164, до 15 цифр).</p>
+          <p class="muted">Приклади: <code>?e164=380979351234</code> або <code>?phone=%2B380979351234</code></p>`;
+        return;
+      }
 
-        // Best-effort close/blank once app takes focus
-        function closeOrBlank() {
-          try { window.close(); } catch (e) {}
-          try { window.open('', '_self'); window.close(); } catch (e) {}
-          setTimeout(() => { if (launched) { try { location.replace('about:blank'); } catch (e) {} } }, 300);
-        }
+      if (isAndroid) {
+        status.innerHTML = `<h2>Відкриваємо Viber…</h2><p class="muted">Android</p>`;
+        androidIntent(E164); // Chrome handles fallback if needed
+        return;
+      }
 
-        // Build deep links
-        const CHAT_URI    = "viber://chat?number=" + digits;
-        const CONTACT_URI = "viber://contact?number=%2B" + digits; // %2B is '+' encoded
+      if (isiOS) {
+        status.innerHTML = `<h2>Відкриваємо Viber…</h2><p class="muted">iOS</p>`;
+        let launched=false;
+        window.addEventListener('pagehide', ()=>{ launched=true; }, {once:true});
+        window.addEventListener('blur', ()=>{ launched=true; }, {once:true});
+        document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') launched=true; }, {once:true});
 
-        if (isAndroid) {
-          // Chrome Intent: only uses fallback if Viber isn't installed (never to viber.com)
-          const intent = "intent://chat?number=" + digits +
-            "#Intent;scheme=viber;package=com.viber.voip;" +
-            "S.browser_fallback_url=" + encodeURIComponent("https://play.google.com/store/apps/details?id=com.viber.voip") +
-            ";end";
-          location.replace(intent);
-        } else {
-          // iOS & desktop: try chat, then contact (+ encoded)
-          location.href = CHAT_URI;
-          setTimeout(() => { location.href = CONTACT_URI; }, 500);
+        location.href = chatUri(E164);
+        setTimeout(()=>{ location.href = contactUriPlus(E164); }, 350);
+        setTimeout(()=>{
+          if (!launched) location.href = "https://apps.apple.com/app/id382617920";
+          else {
+            try{ window.close(); }catch(e){}
+            try{ window.open('','_self'); window.close(); }catch(e){}
+            setTimeout(()=>{ try{ location.replace('about:blank'); }catch(e){} }, 150);
+          }
+        }, 1500);
+        return;
+      }
 
-          // Fallback ONLY if app didn't open
-          setTimeout(() => {
-            if (launched) { closeOrBlank(); return; }
-            if (isiOS) location.href = "https://apps.apple.com/app/id382617920";
-          }, 2250);
-        }
-      })();
-    </script>
-  </head>
-  <body>
-    <div class="wrap">
-      <div id="status" class="msg">
-        <h2>Відкриваємо Viber…</h2>
-        <p class="muted">Якщо Viber встановлено, сторінка зникне автоматично. Якщо ні, на iOS відкриється App Store; на Android — Play Store; на комп’ютері нічого не відбудеться.</p>
-      </div>
+      if (isWindowsDesktop) {
+        // Show one-click button; popup will self-close after launching Viber
+        status.innerHTML = `
+          <h2>Відкрити чат у Viber</h2>
+          <p class="muted">На Windows потрібен один клік, щоб ми могли закрити вкладку автоматично.</p>
+          <p><button id="open">Відкрити в Viber</button></p>`;
+        document.getElementById('open').addEventListener('click', () => openWindowsLauncher(E164));
+        return;
+      }
+
+      // Other desktops: try links; cannot guarantee auto-close by browser policy
+      status.innerHTML = `<h2>Відкриваємо Viber…</h2><p class="muted">Desktop</p>`;
+      location.href = chatUri(E164);
+      setTimeout(()=>{ location.href = contactUriPlus(E164); }, 350);
+    });
+  })();
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div id="status" class="msg">
+      <h2>Відкриваємо Viber…</h2>
+      <p class="muted">Будь ласка, зачекайте…</p>
     </div>
-    <noscript>
-      <div class="wrap"><div class="msg">
-        <p>Увімкніть JavaScript та відкрийте <code>?phone=380979351234</code>.</p>
-      </div></div>
-    </noscript>
-  </body>
+  </div>
+  <noscript>
+    <div class="wrap"><div class="msg">
+      <p>Увімкніть JavaScript та відкрийте <code>?e164=380979351234</code>.</p>
+    </div></div>
+  </noscript>
+</body>
 </html>
-
