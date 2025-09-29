@@ -4,7 +4,6 @@
     <meta charset="utf-8" />
     <title>Відкриваємо Viber…</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="robots" content="noindex, nofollow" />
     <script>
       (function () {
@@ -12,46 +11,55 @@
         const E164_NUMBER = "380979351325"; // ← change if needed
         // =============================================================
 
-        // Build deeplink(s)
-        const num = String(E164_NUMBER).replace(/\D/g, ""); // keep digits only
-        const CHAT_URI = "viber://chat?number=" + num; // commonly used personal chat link
-        const ADD_URI  = "viber://add?number="  + num; // legacy/alt scheme used by some clients
+        // Build deep links
+        const num = String(E164_NUMBER).replace(/\D/g, "");
+        const CHAT_URI = "viber://chat?number=" + num;
+        const ADD_URI  = "viber://add?number="  + num;
 
-        // Fallbacks
+        // Store links (fallbacks)
         const IOS_STORE     = "https://apps.apple.com/app/id382617920";
         const ANDROID_STORE = "https://play.google.com/store/apps/details?id=com.viber.voip";
         const DESKTOP_DL    = "https://www.viber.com/en/download/";
 
-        // Platform detect (rough)
+        // UA hints
         const UA = navigator.userAgent;
         const isAndroid = /Android/i.test(UA);
         const isiOSClassic = /iPhone|iPad|iPod/i.test(UA);
         const isiPadOS = /Macintosh/i.test(UA) && navigator.maxTouchPoints > 2;
         const isIOS = isiOSClassic || isiPadOS;
-        const isMobile = isAndroid || isIOS;
 
-        // Cancel fallbacks if the page loses visibility (user switched to Viber)
+        // ---- Best-effort: close/blank the tab when Viber takes focus ----
+        // NOTE: Browsers generally only allow scripts to close windows they opened.
+        // We'll try to close; if blocked, we'll at least replace with about:blank.
+        function tryCloseOrBlank() {
+          try { window.close(); } catch (e) {}
+          try { window.open('', '_self'); window.close(); } catch (e) {}
+          setTimeout(() => { try { location.replace('about:blank'); } catch (e) {} }, 150);
+        }
+
+        // If we lose visibility (likely jumped to Viber), close/blank
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'hidden') {
+            tryCloseOrBlank();
+          }
+        });
+
+        // Kick off deep linking immediately
+        function go(uri) { try { window.location.href = uri; } catch (e) {} }
+        go(CHAT_URI);
+        setTimeout(() => go(ADD_URI), 500);
+
+        // If app didn't take over, send user to the store/desktop download
         let jumped = false;
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "hidden") jumped = true;
         });
-
-        // Try to open the app immediately
-        function go(uri) {
-          try { window.location.href = uri; } catch (e) {}
-        }
-
-        // Attempt chat link, then (quickly) add link for older clients
-        go(CHAT_URI);
-        setTimeout(() => go(ADD_URI), 500);
-
-        // After a short delay, if we're still here, send to the right store/desktop download
         setTimeout(() => {
-          if (jumped) return; // app likely opened
+          if (jumped) return;
           if (isAndroid)      window.location.href = ANDROID_STORE;
           else if (isIOS)     window.location.href = IOS_STORE;
           else                window.location.href = DESKTOP_DL;
-        }, 3000);
+        }, 1600);
       })();
     </script>
     <style>html,body{height:100%;margin:0}</style>
@@ -64,6 +72,3 @@
     </noscript>
   </body>
 </html>
-
-
-
