@@ -64,7 +64,7 @@
         function closeOrBlank() {
           try { window.close(); } catch (e) {}
           try { window.open('', '_self'); window.close(); } catch (e) {}
-          setTimeout(() => { if (launched) { try { location.replace('about:blank'); } catch (e) {} } }, 200);
+          setTimeout(() => { if (launched) { try { location.replace('about:blank'); } catch (e) {} } }, 300);
         }
 
         // Build deep links
@@ -81,13 +81,13 @@
         } else {
           // iOS & desktop: try chat, then contact (+ encoded)
           location.href = CHAT_URI;
-          setTimeout(() => { location.href = CONTACT_URI; }, 350);
+          setTimeout(() => { location.href = CONTACT_URI; }, 500);
 
           // Fallback ONLY if app didn't open
           setTimeout(() => {
             if (launched) { closeOrBlank(); return; }
             if (isiOS) location.href = "https://apps.apple.com/app/id382617920";
-          }, 1500);
+          }, 2250);
         }
       })();
     </script>
@@ -101,8 +101,9 @@
     </div>
     <noscript>
       <div class="wrap"><div class="msg">
-        <p>Увімкніть JavaScript та відкрийте <code>?e164=380979351234</code>.</p>
+        <p>Увімкніть JavaScript та відкрийте <code>?phone=380979351234</code>.</p>
       </div></div>
     </noscript>
   </body>
 </html>
+
