@@ -2,142 +2,65 @@
 <html lang="uk">
   <head>
     <meta charset="utf-8" />
-    <title>Відкрити Viber</title>
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Відкриваємо Viber…</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <style>
-      :root { --pad:16px; --radius:14px; --max:720px; }
-      body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-           margin:0; padding:calc(var(--pad)*2) var(--pad); line-height:1.55;}
-      main{max-width:var(--max); margin:0 auto;}
-      .card{border:1px solid #e5e7eb; border-radius:var(--radius); padding:24px;}
-      h1{margin:0 0 8px 0; font-size:1.4rem;}
-      p{margin:8px 0;}
-      .btn{display:inline-block; padding:12px 18px; border-radius:12px;
-           border:1px solid #111827; text-decoration:none; font-weight:600}
-      .muted{color:#6b7280; font-size:.95rem}
-      .grid{display:grid; gap:12px; grid-auto-flow:row; margin-top:12px}
-      .hint{background:#f9fafb; border:1px dashed #d1d5db; border-radius:12px; padding:12px}
-      .small{font-size:.9rem}
-      code{background:#f3f4f6; padding:2px 6px; border-radius:6px}
-    </style>
+    <meta name="robots" content="noindex, nofollow" />
+    <script>
+      (function () {
+        // === SET YOUR NUMBER HERE (digits only, E.164 without "+") ===
+        const E164_NUMBER = "380979351234"; // ← change if needed
+        // =============================================================
+
+        // Build deeplink(s)
+        const num = String(E164_NUMBER).replace(/\D/g, ""); // keep digits only
+        const CHAT_URI = "viber://chat?number=" + num; // commonly used personal chat link
+        const ADD_URI  = "viber://add?number="  + num; // legacy/alt scheme used by some clients
+
+        // Fallbacks
+        const IOS_STORE     = "https://apps.apple.com/app/id382617920";
+        const ANDROID_STORE = "https://play.google.com/store/apps/details?id=com.viber.voip";
+        const DESKTOP_DL    = "https://www.viber.com/en/download/";
+
+        // Platform detect (rough)
+        const UA = navigator.userAgent;
+        const isAndroid = /Android/i.test(UA);
+        const isiOSClassic = /iPhone|iPad|iPod/i.test(UA);
+        const isiPadOS = /Macintosh/i.test(UA) && navigator.maxTouchPoints > 2;
+        const isIOS = isiOSClassic || isiPadOS;
+        const isMobile = isAndroid || isIOS;
+
+        // Cancel fallbacks if the page loses visibility (user switched to Viber)
+        let jumped = false;
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "hidden") jumped = true;
+        });
+
+        // Try to open the app immediately
+        function go(uri) {
+          try { window.location.href = uri; } catch (e) {}
+        }
+
+        // Attempt chat link, then (quickly) add link for older clients
+        go(CHAT_URI);
+        setTimeout(() => go(ADD_URI), 500);
+
+        // After a short delay, if we're still here, send to the right store/desktop download
+        setTimeout(() => {
+          if (jumped) return; // app likely opened
+          if (isAndroid)      window.location.href = ANDROID_STORE;
+          else if (isIOS)     window.location.href = IOS_STORE;
+          else                window.location.href = DESKTOP_DL;
+        }, 1600);
+      })();
+    </script>
+    <style>html,body{height:100%;margin:0}</style>
   </head>
   <body>
-    <main>
-      <div class="card">
-        <h1>Відкрити чат у Viber</h1>
-        <p class="muted">Якщо застосунок не відкрився автоматично, натисніть кнопку нижче.</p>
-
-        <div class="grid">
-          <a id="open" class="btn" href="#" role="button">Відкрити в Viber</a>
-          <a id="copy" class="btn" href="#" style="border-color:#9ca3af" role="button">Скопіювати номер</a>
-        </div>
-
-        <div class="hint small" style="margin-top:14px">
-          <strong>Порада:</strong> у браузерах всередині Instagram/Facebook/TikTok спочатку натисніть
-          <em>«Відкрити в браузері»</em>, а потім — кнопку вище.
-        </div>
-
-        <p class="small muted" style="margin-top:10px">
-          Якщо Viber не встановлено, вас перенаправить до магазину застосунків.
-        </p>
-      </div>
-    </main>
-
-    <script>
-      // ---------- CONFIG ----------
-      const E164_NUMBER = "380979351325"; // digits only (no +)
-      const SCHEME = "viber://chat?number=%2B" + E164_NUMBER;
-
-      // Fallbacks by platform
-      const IOS_APPSTORE = "https://apps.apple.com/app/id382617920";
-      const ANDROID_PLAY = "https://play.google.com/store/apps/details?id=com.viber.voip";
-      const DESKTOP_DL   = "https://www.viber.com/en/download/";
-
-      // ---------- HELPERS ----------
-      const UA = navigator.userAgent;
-      const isAndroid = /Android/i.test(UA);
-      const isiOSClassic = /iPhone|iPad|iPod/i.test(UA);
-      // iPadOS can report "Macintosh" but has touch points
-      const isiPadOS = /Macintosh/i.test(UA) && navigator.maxTouchPoints > 2;
-      const isIOS = isiOSClassic || isiPadOS;
-      const isMobile = isAndroid || isIOS;
-
-      // Treat common embedded browsers as "tap required"
-      const isInApp = /(FBAN|FBAV|FB_IAB|Instagram|Line|Messenger|WhatsApp|TikTok|Twitter|Telegram|WeChat|Snapchat|Pinterest|Discord)/i
-                      .test(UA);
-
-      // Cancel fallback if page becomes hidden (user switched to Viber) or being unloaded
-      let fallbackTimer = null;
-      const clearFallback = () => { if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; } };
-      document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "hidden") clearFallback();
-      });
-      // iOS often fires pagehide when app switch occurs
-      window.addEventListener("pagehide", clearFallback);
-
-      // Prevent back-button loops after fallback (normalize current entry)
-      try { history.replaceState(null, "", location.href); } catch {}
-
-      function fallback() {
-        // Use replace() to avoid stacking entries and back-button loops
-        if (isIOS)        location.replace(IOS_APPSTORE);
-        else if (isAndroid) location.replace(ANDROID_PLAY);
-        else              location.replace(DESKTOP_DL);
-      }
-
-      function openViber() {
-        // Try to open Viber via custom scheme
-        location.href = SCHEME;
-        // If nothing happens, go to store/download
-        clearFallback();
-        fallbackTimer = setTimeout(fallback, 1600);
-      }
-
-      // Wire buttons
-      document.getElementById("open").addEventListener("click", (e) => {
-        e.preventDefault();
-        openViber();
-      });
-
-      document.getElementById("copy").addEventListener("click", async (e) => {
-        e.preventDefault();
-        const text = "+" + E164_NUMBER;
-
-        // Prefer modern clipboard if available AND secure context
-        if (navigator.clipboard && window.isSecureContext) {
-          try {
-            await navigator.clipboard.writeText(text);
-            e.target.textContent = "Скопійовано ✓";
-            setTimeout(() => (e.target.textContent = "Скопіювати номер"), 1500);
-            return;
-          } catch {}
-        }
-
-        // Legacy fallback: temporary input selection
-        try {
-          const input = document.createElement("input");
-          input.value = text;
-          input.setAttribute("readonly", "");
-          input.style.position = "absolute";
-          input.style.left = "-9999px";
-          document.body.appendChild(input);
-          input.select();
-          document.execCommand("copy"); // deprecated but widely supported
-          document.body.removeChild(input);
-          e.target.textContent = "Скопійовано ✓";
-          setTimeout(() => (e.target.textContent = "Скопіювати номер"), 1500);
-        } catch {
-          // Last-resort: show the number
-          alert(text);
-        }
-      });
-
-      // Auto-open only on real mobile browsers (not in-app).
-      // Note: this is NOT a user gesture; some environments still require a tap.
-      if (isMobile && !isInApp) {
-        setTimeout(openViber, 50);
-      }
-    </script>
+    <!-- No UI. Autoredirect only. Minimal fallbacks below for very old browsers: -->
+    <noscript>
+      <meta http-equiv="refresh" content="0; url=viber://chat?number=380979351234">
+      <p>Якщо сторінка не відкрила Viber автоматично, спробуйте <a href="viber://chat?number=380979351234">натиснути тут</a> або встановіть Viber.</p>
+    </noscript>
   </body>
 </html>
