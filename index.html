@@ -1,46 +1,64 @@
-<script>
-(function () {
-  const E164 = "380979351325";               // digits only, include country code
-  const VIBER_CHAT    = "viber://chat?number=" + E164;
-  const VIBER_CONTACT = "viber://contact?number=%2B" + E164; // note %2B (encoded +)
-  const PLAY = "https://play.google.com/store/apps/details?id=com.viber.voip";
-  const IOS  = "https://apps.apple.com/app/id382617920";
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Відкриваємо Viber…</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <script>
+      (function () {
+        // === SET YOUR NUMBER HERE (digits only, E.164 without "+") ===
+        const E164 = "380979351234"; // ← change if needed
+        // =============================================================
 
-  const ua = navigator.userAgent;
-  const isAndroid = /Android/i.test(ua);
-  const isiOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 2);
+        const num = String(E164).replace(/\D/g, "");
 
-  // Mark as "launched" when the page loses focus/visibility (likely because Viber opened)
-  let launched = false;
-  const mark = () => { launched = true; };
-  window.addEventListener('pagehide', mark, {once:true});
-  window.addEventListener('blur', mark, {once:true});
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') mark();
-  }, {once:true});
+        // Platform detect
+        const ua = navigator.userAgent;
+        const isAndroid = /Android/i.test(ua);
+        const isiOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 2);
 
-  function closeOrBlank() {
-    try { window.close(); } catch {}
-    try { window.open('', '_self'); window.close(); } catch {}
-    setTimeout(() => { if (launched) location.replace('about:blank'); }, 200);
-  }
+        // Mark when app likely opened
+        let launched = false;
+        const mark = () => { launched = true; };
+        window.addEventListener('pagehide', mark, { once: true });
+        window.addEventListener('blur', mark, { once: true });
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'hidden') mark();
+        }, { once: true });
 
-  if (isAndroid) {
-    // Chrome Intent: only uses fallback if Viber isn't installed
-    const intent = "intent://chat?number=" + E164 +
-      "#Intent;scheme=viber;package=com.viber.voip;" +
-      "S.browser_fallback_url=" + encodeURIComponent(PLAY) + ";end";
-    location.href = intent;  // No timer needed on Android
-  } else {
-    // iOS & others: try chat, then contact (some builds prefer contact+%2B)
-    location.href = VIBER_CHAT;
-    setTimeout(() => { location.href = VIBER_CONTACT; }, 350);
+        // Best-effort close/blank once app takes focus
+        function closeOrBlank() {
+          try { window.close(); } catch (e) {}
+          try { window.open('', '_self'); window.close(); } catch (e) {}
+          setTimeout(() => { if (launched) { try { location.replace('about:blank'); } catch (e) {} } }, 200);
+        }
 
-    // Fallback ONLY if app didn't open
-    setTimeout(() => {
-      if (launched) { closeOrBlank(); return; }
-      if (isiOS) location.href = IOS;
-    }, 1500);
-  }
-})();
-</script>
+        if (isAndroid) {
+          // Use Chrome Intent. Fallback ONLY to Play Store (never to viber.com).
+          const intent = "intent://chat?number=" + num +
+            "#Intent;scheme=viber;package=com.viber.voip;" +
+            "S.browser_fallback_url=" + encodeURIComponent("https://play.google.com/store/apps/details?id=com.viber.voip") +
+            ";end";
+          location.replace(intent);
+        } else {
+          // iOS & desktop: try chat first, then contact with encoded + (community-compatible)
+          location.href = "viber://chat?number=" + num;
+          setTimeout(() => { location.href = "viber://contact?number=%2B" + num; }, 350);
+
+          // If app didn't open, fallback ONLY on iOS to App Store. Desktop: do nothing.
+          setTimeout(() => {
+            if (launched) { closeOrBlank(); return; }
+            if (isiOS) location.href = "https://apps.apple.com/app/id382617920";
+          }, 1500);
+        }
+      })();
+    </script>
+    <style>html,body{height:100%;margin:0}</style>
+  </head>
+  <body>
+    <noscript>
+      <p>Увімкніть JavaScript, щоб відкрити Viber за номером.</p>
+    </noscript>
+  </body>
+</html>
