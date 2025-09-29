@@ -1,74 +1,46 @@
-<!doctype html>
-<html lang="uk">
-  <head>
-    <meta charset="utf-8" />
-    <title>Відкриваємо Viber…</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex, nofollow" />
-    <script>
-      (function () {
-        // === SET YOUR NUMBER HERE (digits only, E.164 without "+") ===
-        const E164_NUMBER = "380979351325"; // ← change if needed
-        // =============================================================
+<script>
+(function () {
+  const E164 = "380979351325";               // digits only, include country code
+  const VIBER_CHAT    = "viber://chat?number=" + E164;
+  const VIBER_CONTACT = "viber://contact?number=%2B" + E164; // note %2B (encoded +)
+  const PLAY = "https://play.google.com/store/apps/details?id=com.viber.voip";
+  const IOS  = "https://apps.apple.com/app/id382617920";
 
-        // Build deep links
-        const num = String(E164_NUMBER).replace(/\D/g, "");
-        const CHAT_URI = "viber://chat?number=" + num;
-        const ADD_URI  = "viber://add?number="  + num;
+  const ua = navigator.userAgent;
+  const isAndroid = /Android/i.test(ua);
+  const isiOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 2);
 
-        // Store links (fallbacks)
-        const IOS_STORE     = "https://apps.apple.com/app/id382617920";
-        const ANDROID_STORE = "https://play.google.com/store/apps/details?id=com.viber.voip";
-        const DESKTOP_DL    = "https://www.viber.com/en/download/";
+  // Mark as "launched" when the page loses focus/visibility (likely because Viber opened)
+  let launched = false;
+  const mark = () => { launched = true; };
+  window.addEventListener('pagehide', mark, {once:true});
+  window.addEventListener('blur', mark, {once:true});
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') mark();
+  }, {once:true});
 
-        // UA hints
-        const UA = navigator.userAgent;
-        const isAndroid = /Android/i.test(UA);
-        const isiOSClassic = /iPhone|iPad|iPod/i.test(UA);
-        const isiPadOS = /Macintosh/i.test(UA) && navigator.maxTouchPoints > 2;
-        const isIOS = isiOSClassic || isiPadOS;
+  function closeOrBlank() {
+    try { window.close(); } catch {}
+    try { window.open('', '_self'); window.close(); } catch {}
+    setTimeout(() => { if (launched) location.replace('about:blank'); }, 200);
+  }
 
-        // ---- Best-effort: close/blank the tab when Viber takes focus ----
-        // NOTE: Browsers generally only allow scripts to close windows they opened.
-        // We'll try to close; if blocked, we'll at least replace with about:blank.
-        function tryCloseOrBlank() {
-          try { window.close(); } catch (e) {}
-          try { window.open('', '_self'); window.close(); } catch (e) {}
-          setTimeout(() => { try { location.replace('about:blank'); } catch (e) {} }, 150);
-        }
+  if (isAndroid) {
+    // Chrome Intent: only uses fallback if Viber isn't installed
+    const intent = "intent://chat?number=" + E164 +
+      "#Intent;scheme=viber;package=com.viber.voip;" +
+      "S.browser_fallback_url=" + encodeURIComponent(PLAY) + ";end";
+    location.href = intent;  // No timer needed on Android
+  } else {
+    // iOS & others: try chat, then contact (some builds prefer contact+%2B)
+    location.href = VIBER_CHAT;
+    setTimeout(() => { location.href = VIBER_CONTACT; }, 350);
 
-        // If we lose visibility (likely jumped to Viber), close/blank
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'hidden') {
-            tryCloseOrBlank();
-          }
-        });
-
-        // Kick off deep linking immediately
-        function go(uri) { try { window.location.href = uri; } catch (e) {} }
-        go(CHAT_URI);
-        setTimeout(() => go(ADD_URI), 500);
-
-        // If app didn't take over, send user to the store/desktop download
-        let jumped = false;
-        document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "hidden") jumped = true;
-        });
-        setTimeout(() => {
-          if (jumped) return;
-          if (isAndroid)      window.location.href = ANDROID_STORE;
-          else if (isIOS)     window.location.href = IOS_STORE;
-          else                window.location.href = DESKTOP_DL;
-        }, 1600);
-      })();
-    </script>
-    <style>html,body{height:100%;margin:0}</style>
-  </head>
-  <body>
-    <!-- No UI. Autoredirect only. Minimal fallbacks below for very old browsers: -->
-    <noscript>
-      <meta http-equiv="refresh" content="0; url=viber://chat?number=380979351325">
-      <p>Якщо сторінка не відкрила Viber автоматично, спробуйте <a href="viber://chat?number=380979351325">натиснути тут</a> або встановіть Viber.</p>
-    </noscript>
-  </body>
-</html>
+    // Fallback ONLY if app didn't open
+    setTimeout(() => {
+      if (launched) { closeOrBlank(); return; }
+      if (isiOS) location.href = IOS;
+    }, 1500);
+  }
+})();
+</script>
